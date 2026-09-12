@@ -43,7 +43,7 @@ export function AuthScreen() {
         <span className="flex size-12 items-center justify-center rounded-2xl bg-primary text-primary-foreground shadow-lg shadow-primary/25">
           <Dumbbell className="size-6" strokeWidth={2.2} />
         </span>
-        <h1 className="mt-1 text-2xl font-bold text-foreground">Iron Log</h1>
+        <h1 className="mt-1 text-2xl font-bold text-foreground">Ligera</h1>
         <p className="mb-6 text-center text-sm text-muted-foreground">
           {isSignup
             ? 'Create an account to start tracking your lifts.'

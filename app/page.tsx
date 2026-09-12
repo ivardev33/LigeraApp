@@ -28,7 +28,7 @@ export default function Page() {
           <>
             <div className="flex shrink-0 items-center justify-between border-b border-border bg-card/60 px-4 py-3">
               <span className="text-[11px] font-bold uppercase tracking-widest text-foreground">
-                Iron Log
+                Ligera
               </span>
               <UserMenu />
             </div>

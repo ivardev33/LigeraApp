@@ -1,4 +1,4 @@
--- Iron Log schema for Supabase
+-- Ligera schema for Supabase
 -- Run this in the Supabase SQL Editor (or via supabase db push).
 
 create extension if not exists pgcrypto;

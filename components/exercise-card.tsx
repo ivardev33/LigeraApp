@@ -5,11 +5,28 @@ import type { DraftExercise, DraftSet } from '@/lib/workout-data'
 import { cn } from '@/lib/utils'
 import { NumberStepper } from '@/components/number-stepper'
 
+const RIR_ORDER = [0, 1, 2, 3] as const
+
+const RIR_CLASSES: Record<number, string> = {
+  0: 'bg-red-500/15 text-red-400',
+  1: 'bg-orange-500/15 text-orange-400',
+  2: 'bg-yellow-500/15 text-yellow-400',
+  3: 'bg-emerald-500/15 text-emerald-400',
+}
+
+function cycleRir(value: number | null | undefined): number | null {
+  if (value == null) return RIR_ORDER[0]
+  const idx = RIR_ORDER.indexOf(value as (typeof RIR_ORDER)[number])
+  if (idx < 0 || idx === RIR_ORDER.length - 1) return null
+  return RIR_ORDER[idx + 1]
+}
+
 export function ExerciseCard({
   exercise,
   lastNote,
   onToggleSet,
   onChangeSet,
+  onSetRir,
   onAddSet,
   onRemoveSet,
   onRemoveExercise,
@@ -18,6 +35,7 @@ export function ExerciseCard({
   lastNote: string | null
   onToggleSet: (setId: string) => void
   onChangeSet: (setId: string, patch: Partial<DraftSet>) => void
+  onSetRir: (setId: string, rir: number | null) => void
   onAddSet: () => void
   onRemoveSet: (setId: string) => void
   onRemoveExercise: () => void
@@ -31,6 +49,11 @@ export function ExerciseCard({
           <h2 className="text-lg font-semibold text-foreground text-balance">{exercise.name}</h2>
           {exercise.target && (
             <p className="mt-0.5 text-xs font-semibold text-primary">{exercise.target}</p>
+          )}
+          {exercise.nextKg != null && (
+            <p className="mt-0.5 text-xs font-bold text-emerald-400">
+              ↑ Next: {exercise.nextKg} kg
+            </p>
           )}
           {lastNote && <p className="mt-1 text-sm text-muted-foreground">{lastNote}</p>}
         </div>
@@ -91,6 +114,17 @@ export function ExerciseCard({
               />
             </div>
             <div className="flex shrink-0 flex-col items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => onSetRir(set.id, cycleRir(set.rir))}
+                aria-label={`Cycle RIR for set ${i + 1}`}
+                className={cn(
+                  'rounded-md px-1.5 py-0.5 text-[10px] font-bold tabular-nums transition-colors',
+                  set.rir != null ? RIR_CLASSES[set.rir] : 'bg-secondary text-muted-foreground/70',
+                )}
+              >
+                {set.rir != null ? `RIR${set.rir}` : 'RIR'}
+              </button>
               <button
                 type="button"
                 onClick={() => onToggleSet(set.id)}

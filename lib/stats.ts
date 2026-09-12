@@ -66,6 +66,20 @@ export function lastSetNote(workouts: Workout[], name: string): string | null {
   return `Last time: ${last.kg} kg × ${last.reps}`
 }
 
+export function shouldProgress(workouts: Workout[], name: string, targetRepsMax: number): boolean {
+  let lastTime = -1
+  let hit = false
+  for (const w of workouts) {
+    const ex = w.exercises.find((e) => e.name === name)
+    if (!ex || ex.sets.length === 0) continue
+    const t = new Date(w.date).getTime()
+    if (t <= lastTime) continue
+    lastTime = t
+    hit = ex.sets.every((s) => s.kg > 0 && s.reps >= targetRepsMax)
+  }
+  return hit
+}
+
 export function bestPerWorkout(workouts: Workout[], name: string): ProgressPoint[] {
   const points: ProgressPoint[] = []
   for (const w of workouts) {

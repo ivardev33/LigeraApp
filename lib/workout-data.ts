@@ -6,6 +6,7 @@ export type RoutineExercise = {
   rir: string
   note: string
   bodyweight?: boolean
+  restSeconds: number
 }
 
 export type RoutineDay = {
@@ -54,6 +55,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 7,
         rir: '1.5–2',
         note: 'Controlar la fase excéntrica de manera estricta.',
+        restSeconds: 180,
       },
       {
         name: 'Remo Apoyado en Pecho',
@@ -62,6 +64,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 8,
         rir: '1–2',
         note: 'Máxima tracción sin balanceo de la zona lumbar.',
+        restSeconds: 120,
       },
       {
         name: 'Press Militar',
@@ -70,6 +73,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 8,
         rir: '2',
         note: 'Bloqueo completo de glúteos y core para estabilidad.',
+        restSeconds: 180,
       },
       {
         name: 'Dominadas Lastradas',
@@ -78,6 +82,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 8,
         rir: '1–2',
         note: 'Agarre prono o neutro.',
+        restSeconds: 120,
       },
       {
         name: 'Cruces de Polea Alta a Baja',
@@ -86,6 +91,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'Aislamiento pectoral, enfoque en el bombeo inferior/media.',
+        restSeconds: 60,
       },
     ],
   },
@@ -100,6 +106,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 8,
         rir: '2',
         note: 'Romper la paralela (más de 90° de flexión).',
+        restSeconds: 180,
       },
       {
         name: 'Peso Muerto Rumano',
@@ -108,6 +115,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 8,
         rir: '1.5',
         note: 'Bisagra de cadera pura, máximo estiramiento femoral.',
+        restSeconds: 180,
       },
       {
         name: 'Prensa de Piernas 45°',
@@ -116,6 +124,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'Enfoque cuádriceps, pies media-baja en la plataforma.',
+        restSeconds: 120,
       },
       {
         name: 'Curl Femoral Tumbado',
@@ -124,6 +133,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 10,
         rir: '1',
         note: 'Aislamiento de cadena posterior.',
+        restSeconds: 90,
       },
       {
         name: 'Gemelos de Pie en Máquina',
@@ -132,6 +142,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '0',
         note: 'Negativa lenta de 3 segundos',
+        restSeconds: 60,
       },
     ],
   },
@@ -146,6 +157,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 10,
         rir: '1',
         note: 'Inclinación ideal a ~30°.',
+        restSeconds: 120,
       },
       {
         name: 'Fondos en Paralelas',
@@ -155,6 +167,7 @@ export const routineDays: RoutineDay[] = [
         rir: '1',
         note: 'Lastrados si es necesario.',
         bodyweight: true,
+        restSeconds: 120,
       },
       {
         name: 'Press de Hombros Sentado',
@@ -163,6 +176,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'Con mancuernas.',
+        restSeconds: 120,
       },
       {
         name: 'Elevaciones Laterales en Polea',
@@ -171,6 +185,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 15,
         rir: '0',
         note: 'Separar la cuerda al final de la extensión.',
+        restSeconds: 60,
       },
       {
         name: 'Extensiones de Tríceps en Polea Alta',
@@ -179,6 +194,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '0',
         note: 'En polea alta con cuerda, terminar al fallo.',
+        restSeconds: 60,
       },
     ],
   },
@@ -193,6 +209,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 10,
         rir: '1',
         note: 'Llevar los codos hacia la cadera.',
+        restSeconds: 120,
       },
       {
         name: 'Remo con Mancuerna a Una Mano',
@@ -201,6 +218,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'A una mano apoyado.',
+        restSeconds: 90,
       },
       {
         name: 'Face Pulls en Polea',
@@ -209,6 +227,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'Llevar la cuerda hacia los ojos, salud del manguito.',
+        restSeconds: 60,
       },
       {
         name: 'Curl de Bíceps Inclinado',
@@ -217,6 +236,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'Sentado en banco inclinado.',
+        restSeconds: 60,
       },
       {
         name: 'Curl Martillo',
@@ -225,6 +245,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'Con mancuernas, alterno.',
+        restSeconds: 60,
       },
     ],
   },
@@ -239,6 +260,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '1',
         note: 'Con mancuernas, trabajo unilateral brutal.',
+        restSeconds: 120,
       },
       {
         name: 'Curl Femoral Sentado',
@@ -247,6 +269,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 12,
         rir: '0',
         note: 'Mayor rango de estiramiento que tumbado.',
+        restSeconds: 90,
       },
       {
         name: 'Extensiones de Cuádriceps',
@@ -255,6 +278,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 15,
         rir: '0',
         note: 'Pausa isométrica de 1 segundo en la contracción.',
+        restSeconds: 60,
       },
       {
         name: 'Gemelos Sentado',
@@ -263,6 +287,7 @@ export const routineDays: RoutineDay[] = [
         repsMax: 15,
         rir: '0',
         note: 'Enfoque en el sóleo.',
+        restSeconds: 60,
       },
       {
         name: 'Rueda Abdominal',
@@ -272,6 +297,7 @@ export const routineDays: RoutineDay[] = [
         rir: '0',
         note: 'Movimiento controlado sin rebotar.',
         bodyweight: true,
+        restSeconds: 60,
       },
     ],
   },
@@ -282,12 +308,14 @@ export type DraftSet = {
   kg: number
   reps: number
   done: boolean
+  rir?: number | null
 }
 
 export type DraftExercise = {
   id: string
   name: string
   target?: string
+  nextKg?: number
   sets: DraftSet[]
 }
 
@@ -297,4 +325,12 @@ function repsText(ex: RoutineExercise): string {
 
 export function targetText(ex: RoutineExercise): string {
   return `${ex.sets} × ${repsText(ex)} · RIR ${ex.rir}`
+}
+
+export function restSecondsFor(name: string): number {
+  for (const day of routineDays) {
+    const ex = day.exercises.find((e) => e.name === name)
+    if (ex) return ex.restSeconds
+  }
+  return 85
 }

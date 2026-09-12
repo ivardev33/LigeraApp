@@ -29,6 +29,9 @@ export function ExerciseCard({
       <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-4">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-foreground text-balance">{exercise.name}</h2>
+          {exercise.target && (
+            <p className="mt-0.5 text-xs font-semibold text-primary">{exercise.target}</p>
+          )}
           {lastNote && <p className="mt-1 text-sm text-muted-foreground">{lastNote}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

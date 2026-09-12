@@ -42,7 +42,7 @@ export function exerciseNameOptions(workouts: Workout[]): string[] {
   return Array.from(new Set([...exerciseOptions, ...used]))
 }
 
-export function lastSetNote(workouts: Workout[], name: string): string | null {
+export function lastBestSet(workouts: Workout[], name: string): LoggedSet | null {
   let last: LoggedSet | null = null
   let lastTime = -1
   for (const w of workouts) {
@@ -57,6 +57,11 @@ export function lastSetNote(workouts: Workout[], name: string): string | null {
     }
     last = best
   }
+  return last
+}
+
+export function lastSetNote(workouts: Workout[], name: string): string | null {
+  const last = lastBestSet(workouts, name)
   if (!last) return null
   return `Last time: ${last.kg} kg × ${last.reps}`
 }

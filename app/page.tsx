@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { BottomNav, type Screen } from '@/components/bottom-nav'
 import { WorkoutScreen } from '@/components/workout-screen'
+import { HistoryScreen } from '@/components/history-screen'
 import { AnalyticsScreen } from '@/components/analytics-screen'
 import { AuthScreen } from '@/components/auth-screen'
 import { UserMenu } from '@/components/user-menu'
@@ -33,7 +34,13 @@ export default function Page() {
               <UserMenu />
             </div>
             <div className="relative flex-1 overflow-hidden">
-              {screen === 'workout' ? <WorkoutScreen /> : <AnalyticsScreen />}
+              {screen === 'workout' ? (
+                <WorkoutScreen />
+              ) : screen === 'history' ? (
+                <HistoryScreen />
+              ) : (
+                <AnalyticsScreen />
+              )}
             </div>
             <BottomNav active={screen} onChange={setScreen} />
           </>

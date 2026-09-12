@@ -1,10 +1,17 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Flag, Plus, X } from 'lucide-react'
-import { exerciseOptions, type DraftExercise, type DraftSet } from '@/lib/workout-data'
+import { CalendarRange, ChevronRight, Flag, Plus, X } from 'lucide-react'
+import {
+  exerciseOptions,
+  routineDays,
+  targetText,
+  type DraftExercise,
+  type DraftSet,
+  type RoutineDay,
+} from '@/lib/workout-data'
 import { saveWorkout, useWorkouts } from '@/lib/data'
-import { fmtDuration, lastSetNote } from '@/lib/stats'
+import { fmtDuration, lastBestSet, lastSetNote } from '@/lib/stats'
 import { useUserId } from '@/lib/auth'
 import { ExerciseCard } from '@/components/exercise-card'
 import { RestTimerBar } from '@/components/rest-timer-bar'
@@ -21,15 +28,12 @@ function newSet(prev?: DraftSet): DraftSet {
   }
 }
 
-function newExercise(name: string): DraftExercise {
-  return { id: uid('e'), name, sets: [newSet()] }
-}
-
 export function WorkoutScreen() {
   const [elapsed, setElapsed] = useState(0)
   const [draft, setDraft] = useState<DraftExercise[]>([])
   const [resting, setResting] = useState(false)
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [routineOpen, setRoutineOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
@@ -56,7 +60,36 @@ export function WorkoutScreen() {
 
   function addExercise(name: string) {
     if (draft.some((ex) => ex.name === name)) return
-    setDraft((prev) => [...prev, newExercise(name)])
+    const last = lastBestSet(workouts, name)
+    const first = last
+      ? { id: uid('s'), kg: last.kg, reps: last.reps, done: false }
+      : newSet()
+    setDraft((prev) => [...prev, { id: uid('e'), name, sets: [first] }])
+    setPickerOpen(false)
+  }
+
+  function startDay(day: RoutineDay) {
+    setDraft((prev) => {
+      const existing = new Set(prev.map((ex) => ex.name))
+      const fresh: DraftExercise[] = []
+      for (const te of day.exercises) {
+        if (existing.has(te.name)) continue
+        const last = lastBestSet(workouts, te.name)
+        fresh.push({
+          id: uid('e'),
+          name: te.name,
+          target: targetText(te),
+          sets: Array.from({ length: te.sets }, (_, i) => ({
+            id: uid('s'),
+            kg: te.bodyweight ? 0 : last?.kg ?? 20,
+            reps: last?.reps ?? te.repsMin,
+            done: false,
+          })),
+        })
+      }
+      return [...prev, ...fresh]
+    })
+    setRoutineOpen(false)
     setPickerOpen(false)
   }
 
@@ -85,6 +118,7 @@ export function WorkoutScreen() {
       setElapsed(0)
       setResting(false)
       setPickerOpen(false)
+      setRoutineOpen(false)
       setFlash({ kind: 'ok', text: 'Workout saved' })
     } catch {
       setFlash({ kind: 'error', text: 'Could not save workout. Check your connection.' })
@@ -140,13 +174,33 @@ export function WorkoutScreen() {
       </header>
 
       <div className="flex-1 overflow-y-auto px-4 py-4 pb-40">
-        {draft.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
+        {draft.length === 0 && !pickerOpen && !routineOpen ? (
+          <div className="flex flex-col items-center gap-4 rounded-2xl border border-dashed border-border px-6 py-12 text-center">
             <Plus className="size-6 text-muted-foreground" />
-            <p className="text-base font-semibold text-foreground">No exercises yet</p>
-            <p className="text-sm text-muted-foreground">
-              Add your first exercise to start logging sets.
-            </p>
+            <div>
+              <p className="text-base font-semibold text-foreground">Start today's session</p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Load your routine for the day, or log exercises by hand.
+              </p>
+            </div>
+            <div className="grid w-full gap-2">
+              <button
+                type="button"
+                onClick={() => setRoutineOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90"
+              >
+                <CalendarRange className="size-4" />
+                Start routine day
+              </button>
+              <button
+                type="button"
+                onClick={() => setPickerOpen(true)}
+                className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+              >
+                <Plus className="size-4" />
+                Add exercises manually
+              </button>
+            </div>
           </div>
         ) : (
           <div className="flex flex-col gap-4">
@@ -185,14 +239,32 @@ export function WorkoutScreen() {
           </div>
         )}
 
-        <button
-          type="button"
-          onClick={() => setPickerOpen((open) => !open)}
-          className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-card py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
-        >
-          <Plus className="size-4" />
-          {pickerOpen ? 'Close' : draft.length === 0 ? 'Add First Exercise' : 'Add Exercise'}
-        </button>
+        {routineOpen && (
+          <div className="mt-4">
+            <RoutinePicker onPick={startDay} onClose={() => setRoutineOpen(false)} />
+          </div>
+        )}
+
+        {draft.length > 0 && (
+          <div className="mt-4 grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setPickerOpen((open) => !open)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+            >
+              <Plus className="size-4" />
+              {pickerOpen ? 'Close' : 'Add Exercise'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setRoutineOpen((open) => !open)}
+              className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card py-3.5 text-sm font-semibold text-foreground transition-colors hover:bg-secondary"
+            >
+              <CalendarRange className="size-4" />
+              {routineOpen ? 'Close' : 'Routine Day'}
+            </button>
+          </div>
+        )}
 
         {draft.length > 0 && (
           <p className="mt-3 text-center text-xs text-muted-foreground">
@@ -283,6 +355,47 @@ function ExercisePicker({
           Add
         </button>
       </div>
+    </section>
+  )
+}
+
+function RoutinePicker({
+  onPick,
+  onClose,
+}: {
+  onPick: (day: RoutineDay) => void
+  onClose: () => void
+}) {
+  return (
+    <section className="rounded-2xl border border-border bg-card">
+      <div className="flex items-center justify-between px-4 pb-1 pt-4">
+        <p className="text-sm font-semibold text-foreground">Your 5-day routine</p>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close"
+          className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
+        >
+          <X className="size-4" />
+        </button>
+      </div>
+      <ul className="px-2 pb-2 pt-1">
+        {routineDays.map((day) => (
+          <li key={day.id}>
+            <button
+              type="button"
+              onClick={() => onPick(day)}
+              className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition-colors hover:bg-secondary"
+            >
+              <span className="text-sm font-semibold text-foreground">{day.title}</span>
+              <ChevronRight className="size-4 shrink-0 text-muted-foreground" />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <p className="px-4 pb-4 text-xs text-muted-foreground">
+        Exercises are pre-filled with your target sets and reps. Weight starts from your last log.
+      </p>
     </section>
   )
 }

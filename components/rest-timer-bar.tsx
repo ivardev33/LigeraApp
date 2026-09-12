@@ -9,9 +9,9 @@ function fmt(sec: number) {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`
 }
 
-export function RestTimerBar({ onSkip }: { onSkip: () => void }) {
-  const [remaining, setRemaining] = useState(85)
-  const total = useRef(85)
+export function RestTimerBar({ seconds, onSkip }: { seconds: number; onSkip: () => void }) {
+  const [remaining, setRemaining] = useState(seconds)
+  const total = useRef(seconds)
 
   useEffect(() => {
     const id = setInterval(() => {

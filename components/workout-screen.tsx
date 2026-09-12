@@ -6,12 +6,13 @@ import {
   exerciseOptions,
   routineDays,
   targetText,
+  restSecondsFor,
   type DraftExercise,
   type DraftSet,
   type RoutineDay,
 } from '@/lib/workout-data'
 import { saveWorkout, useWorkouts } from '@/lib/data'
-import { fmtDuration, lastBestSet, lastSetNote } from '@/lib/stats'
+import { fmtDuration, lastBestSet, lastSetNote, shouldProgress } from '@/lib/stats'
 import { useUserId } from '@/lib/auth'
 import { ExerciseCard } from '@/components/exercise-card'
 import { RestTimerBar } from '@/components/rest-timer-bar'
@@ -32,6 +33,8 @@ export function WorkoutScreen() {
   const [elapsed, setElapsed] = useState(0)
   const [draft, setDraft] = useState<DraftExercise[]>([])
   const [resting, setResting] = useState(false)
+  const [restSeconds, setRestSeconds] = useState(85)
+  const [restKey, setRestKey] = useState('initial')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [routineOpen, setRoutineOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -75,11 +78,16 @@ export function WorkoutScreen() {
       for (const te of day.exercises) {
         if (existing.has(te.name)) continue
         const last = lastBestSet(workouts, te.name)
+        const progress =
+          !te.bodyweight && last && shouldProgress(workouts, te.name, te.repsMax)
+            ? Math.round((last.kg + 2.5) * 10) / 10
+            : undefined
         fresh.push({
           id: uid('e'),
           name: te.name,
           target: targetText(te),
-          sets: Array.from({ length: te.sets }, (_, i) => ({
+          nextKg: progress,
+          sets: Array.from({ length: te.sets }, () => ({
             id: uid('s'),
             kg: te.bodyweight ? 0 : last?.kg ?? 20,
             reps: last?.reps ?? te.repsMin,
@@ -94,11 +102,20 @@ export function WorkoutScreen() {
   }
 
   function toggleSet(exerciseId: string, setId: string) {
-    updateExercise(exerciseId, (ex) => {
-      const sets = ex.sets.map((s) => (s.id === setId ? { ...s, done: !s.done } : s))
-      if (sets.find((s) => s.id === setId)?.done) setResting(true)
-      return { ...ex, sets }
-    })
+    const ex = draft.find((e) => e.id === exerciseId)
+    const set = ex?.sets.find((s) => s.id === setId)
+    if (!ex || !set) return
+    const nowDone = !set.done
+    updateExercise(exerciseId, (cur) => ({
+      ...cur,
+      sets: cur.sets.map((s) => (s.id === setId ? { ...s, done: nowDone } : s)),
+    }))
+    if (nowDone) {
+      const secs = restSecondsFor(ex.name)
+      setRestSeconds(secs)
+      setRestKey(`${ex.name}-${setId}-${Date.now()}`)
+      setResting(true)
+    }
   }
 
   async function commit() {
@@ -112,7 +129,11 @@ export function WorkoutScreen() {
         elapsedSeconds: elapsed,
         exercises: draft
           .filter((ex) => ex.sets.length > 0)
-          .map((ex) => ({ name: ex.name, sets: ex.sets.map((s) => ({ kg: s.kg, reps: s.reps })) })),
+          .map((ex) => ({
+            id: ex.id,
+            name: ex.name,
+            sets: ex.sets.map((s) => ({ kg: s.kg, reps: s.reps, rir: s.rir ?? null })),
+          })),
       })
       setDraft([])
       setElapsed(0)
@@ -216,6 +237,12 @@ export function WorkoutScreen() {
                     sets: cur.sets.map((s) => (s.id === setId ? { ...s, ...patch } : s)),
                   }))
                 }
+                onSetRir={(setId, rir) =>
+                  updateExercise(ex.id, (cur) => ({
+                    ...cur,
+                    sets: cur.sets.map((s) => (s.id === setId ? { ...s, rir } : s)),
+                  }))
+                }
                 onAddSet={() =>
                   updateExercise(ex.id, (cur) => ({ ...cur, sets: [...cur.sets, newSet()] }))
                 }
@@ -276,7 +303,7 @@ export function WorkoutScreen() {
       {resting && (
         <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
           <div className="pointer-events-auto mx-auto max-w-md">
-            <RestTimerBar onSkip={() => setResting(false)} />
+            <RestTimerBar key={restKey} seconds={restSeconds} onSkip={() => setResting(false)} />
           </div>
         </div>
       )}

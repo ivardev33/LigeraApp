@@ -5,6 +5,7 @@ import { BottomNav, type Screen } from '@/components/bottom-nav'
 import { WorkoutScreen } from '@/components/workout-screen'
 import { HistoryScreen } from '@/components/history-screen'
 import { AnalyticsScreen } from '@/components/analytics-screen'
+import { RoutinesScreen } from '@/components/routines-screen'
 import { AuthScreen } from '@/components/auth-screen'
 import { UserMenu } from '@/components/user-menu'
 import { useSession } from '@/lib/auth'
@@ -35,7 +36,9 @@ export default function Page() {
             </div>
             <div className="relative flex-1 overflow-hidden">
               {screen === 'workout' ? (
-                <WorkoutScreen />
+                <WorkoutScreen onOpenRoutines={() => setScreen('routines')} />
+              ) : screen === 'routines' ? (
+                <RoutinesScreen />
               ) : screen === 'history' ? (
                 <HistoryScreen />
               ) : (

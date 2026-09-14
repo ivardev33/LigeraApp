@@ -43,6 +43,23 @@ Update this file every time a feature ships to keep it accurate.
 - PWA: installable manifest, service worker (network-first navigation),
   generated icons, registration in the root layout.
 
+### Editable routines + atomic saves + faster input (current iteration)
+- **Fixed saving**: workouts now save atomically via `log_workout` RPC (one
+  transaction), and `useWorkouts` logs errors instead of failing silently.
+  Root cause of "no se guarda" was most likely an unapplied migration — apply
+  `0002_rir.sql` first, then `0003_routines.sql`.
+- **Editable routines**: new `routines` / `routine_exercises` tables (owner-only
+  RLS). The 5 default days are seeded into the account on first fetch and then
+  freely editable: create/rename/delete days, add/rename/edit/delete exercises
+  (name, sets, rep range, RIR, note) from a new **Routines** tab.
+- **Background-safe timer**: elapsed time is computed from wall-clock timestamps
+  (module-level session start), so it keeps counting after the phone locks and
+  across tab switches. No more paused-at-lock-offset.
+- **Rest timer removed**: per-exercise rest bar deleted; exercise advice (target
+  text, RIR, notes) stays on the cards — routine `note` now visible.
+- **Faster weight entry**: `NumberStepper` center value is now a direct text
+  input (`inputMode="decimal"`) and the `+ / −` buttons repeat on long-press.
+
 ## Decisions (and why)
 
 - **Normalized schema** (4 tables) instead of JSONB per-workout — keeps the door
@@ -60,6 +77,9 @@ Update this file every time a feature ships to keep it accurate.
   event. If a screen still shows stale data after a save/delete, that event flow broke.
 - RIR history chips show the value but there is no RIR aggregation in Progress yet
   (nice future addition: average RIR / effort per week).
+- Routine seeding is guarded by "has zero routines" (no locked flag); a concurrent
+  double-fetch could in theory seed twice. Harmless today (single user), but could
+  use a unique `user_id` marker if it ever bites.
 
 ## Backlog / ideas
 
@@ -68,4 +88,4 @@ Update this file every time a feature ships to keep it accurate.
 - Average RIR per week in Progress.
 - Deload reminder (the PDF calls for deload every 6–8 weeks).
 - Google OAuth sign-in (email/password is in place).
-- Workout timer pause on app background.
+- Reorder exercises / routine days in the Routines tab.

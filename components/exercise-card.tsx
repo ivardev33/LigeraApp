@@ -55,6 +55,7 @@ export function ExerciseCard({
               ↑ Next: {exercise.nextKg} kg
             </p>
           )}
+          {exercise.note && <p className="mt-1 text-xs text-muted-foreground">{exercise.note}</p>}
           {lastNote && <p className="mt-1 text-sm text-muted-foreground">{lastNote}</p>}
         </div>
         <div className="flex shrink-0 items-center gap-1.5">

@@ -1,12 +1,13 @@
 'use client'
 
-import { Dumbbell, History, LineChart } from 'lucide-react'
+import { CalendarRange, Dumbbell, History, LineChart } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export type Screen = 'workout' | 'history' | 'progress'
+export type Screen = 'workout' | 'history' | 'progress' | 'routines'
 
 const items: { id: Screen; label: string; icon: typeof Dumbbell }[] = [
   { id: 'workout', label: 'Workout', icon: Dumbbell },
+  { id: 'routines', label: 'Routines', icon: CalendarRange },
   { id: 'history', label: 'History', icon: History },
   { id: 'progress', label: 'Progress', icon: LineChart },
 ]

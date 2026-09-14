@@ -9,9 +9,9 @@ A mobile-first workout tracker (PWA) for **Ivar**
 
 's** 5-day advanced training routine. The app lets the user:
 
-- Start a `routineDays` template, or add exercises by hand
-- Log each set with kg / reps / RIR, mark sets complete to trigger a rest timer
-- Save sessions to Supabase (online-only, no offline cache)
+- Start an editable routine template (per-user, seeded from the 5 default days), or add exercises by hand
+- Log each set with kg / reps / RIR; mark sets complete
+- Save sessions to Supabase atomically via the `log_workout` RPC (online-only, no offline cache)
 - Review past workouts (History) and long-term strength trends (Progress)
 
 > Product north star (deferred, not implemented): friend-to-friend competition
@@ -41,28 +41,29 @@ There is **no `lint` script**. Verify with `tsc --noEmit` + `pnpm build`.
 ```
 app/
   layout.tsx      root layout: fonts, metadata, viewport, PWA manifest/sw
-  page.tsx        session gate; tab router (workout/history/progress)
+  page.tsx        session gate; tab router (workout/routines/history/progress)
   globals.css     Tailwind v4 entry
 proxy.ts          root middleware replaced by this proxy (Next 16, refreshed-cookies session)
 components/       client UI screens + shared controls
   ui/             shadcn/ui primitives (button, input, ...)
 lib/
   auth.ts         useSession, useUserId, useProfile, signUp/signIn/signOut
-  data.ts         Workout types, fetchWorkouts, saveWorkout, deleteWorkout/Exercise, useWorkouts
+  data.ts         Workout types, fetchWorkouts, saveWorkout (RPC), deleteWorkout/Exercise, useWorkouts
+  routines.ts     editable routine days: fetch/seed, CRUD, useRoutines
   stats.ts        Epley 1RM, PRs, lastBestSet, shouldProgress, filters
-  workout-data.ts exerciseOptions, routineDays, target helpers, DraftSet/DraftExercise
+  workout-data.ts exerciseOptions, defaultRoutineDays (seed), target helpers, DraftSet/DraftExercise
   supabase/
     client.ts     browser Supabase client (singleton)
     server.ts     server client via cookies
     middleware.ts updateSession helper consumed by root proxy.ts
-supabase/migrations/   SQL migrations (0001_init, 0002_rir, ...)
+supabase/migrations/   SQL migrations (0001_init, 0002_rir, 0003_routines, ...)
 scripts/generate-icons.mjs  pure-Node PNG icon generator (no deps)
 public/           manifest.json, sw.js, icons/
 docs/             ROADMAP.md, SUPABASE.md
 ```
 
 Screens are interchangeable views rendered inside `app/page.tsx`, switched by
-`BottomNav` (`components/bottom-nav.tsx`, 3 tabs: Workout · History · Progress).
+`BottomNav` (`components/bottom-nav.tsx`, 4 tabs: Workout · Routines · History · Progress).
 
 ## Data model (Postgres via Supabase)
 
@@ -70,10 +71,12 @@ Screens are interchangeable views rendered inside `app/page.tsx`, switched by
 - `workouts` — user_id, date, elapsed_seconds
 - `workout_exercises` — workout_id (FK), name, position
 - `workout_sets` — exercise_id (FK), kg numeric(6,1), reps int, position, **rir smallint nullable (0–3)**
+- `routines` — user_id, title, position (editable routine days, seeded per user)
+- `routine_exercises` — routine_id (FK), name, sets, reps_min, reps_max, rir text, note, bodyweight, position
 
 All cascade on delete. **RLS enabled** on every table:
 - profiles: any authenticated user may **read** usernames (for the planned competition), owner can update.
-- workouts/exercises/sets: **owner-only** on every operation (checks `auth.uid()` up the parent chain).
+- workouts/exercises/sets and routines/routine_exercises: **owner-only** on every operation (checks `auth.uid()` up the parent chain).
 
 See `docs/SUPABASE.md` for applying migrations and the RLS reference.
 
@@ -91,6 +94,13 @@ See `docs/SUPABASE.md` for applying migrations and the RLS reference.
 It refreshes on mount, on auth change, **and** on a window event
 `ligera:workouts-changed`. Every mutation (`saveWorkout`, `deleteWorkout`,
 `deleteExercise`) must dispatch that event afterwards or other screens go stale.
+
+Sessions are saved atomically via the `log_workout` RPC (single transaction in
+Postgres); `saveWorkout` in `lib/data.ts` calls `supabase.rpc('log_workout', …)`.
+
+`useRoutines()` (in `lib/routines.ts`) is the source of truth for editable
+routine days. It seeds the 5 defaults on first fetch and refreshes on the
+`ligera:routines-changed` event; every routine CRUD must dispatch that event.
 
 ## Conventions
 
@@ -124,7 +134,6 @@ It refreshes on mount, on auth change, **and** on a window event
 
 ## Cross-cutting helpers
 
-- `restSecondsFor(name)` → rest time for an exercise (routine lookup, default 85s).
 - `targetText(te)` → shown on cards (e.g. `4 × 5–7 · RIR 1.5–2`).
 - `shouldProgress(workouts, name, repsMax)` → true when the last session hit the
   top of the target rep range on every set (progressive overload hint).

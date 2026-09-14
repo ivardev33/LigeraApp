@@ -43,17 +43,34 @@ alter table public.workout_sets
 `rir` is nullable, range 0–3 (0 = to failure, higher = easier). RLS-passthrough:
 the db is the seed of truth for values.
 
+### `0003_routines.sql`
+
+Editable per-user routine templates + atomic workout save:
+
+- `routines` (user_id, title, position) and `routine_exercises`
+  (routine_id FK, name, sets, reps_min, reps_max, rir text, note, bodyweight,
+  position), both RLS **owner-only** (exercises resolve ownership through the
+  parent routine).
+- `log_workout(user_id, date, elapsed, exercises jsonb)` — a `security definer`
+  RPC that inserts a workout, its exercises and all sets in **one transaction**
+  (guards `user_id = auth.uid()` and that `exercises` is a JSON array).
+  The browser client calls it via `supabase.rpc('log_workout', …)` from
+  `saveWorkout` in `lib/data.ts`.
+
+> Note: like `0001`, the `create policy` statements are not re-runnable. Run each
+> migration file exactly once — matching how `0001`/`0002` were applied.
+
 ## Row Level Security reference
 
-| operation      | profiles                        | workouts / exercises / sets          |
+| operation      | profiles                        | workouts / exercises / sets, routines / routine_exercises |
 | -------------- | ------------------------------- | ------------------------------------ |
 | `select`       | any authenticated user          | owner only                           |
 | `insert`       | — (trigger on signup)           | owner only (`user_id` / parent chain)|
 | `update`       | owner only                      | owner only                           |
 | `delete`       | —                               | owner only (cascade)                 |
 
-All child-table policies resolve ownership through the parent workout
-(`exists (select 1 from workouts w where w.id = workout_id and w.user_id = auth.uid())`).
+All child-table policies resolve ownership through the parent row
+(`workouts` or `routines`): `exists (select 1 from <parent> p where p.id = <fk> and p.user_id = auth.uid())`.
 
 ## Env vars (`.env.local`, gitignored)
 

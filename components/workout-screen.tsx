@@ -4,21 +4,30 @@ import { useEffect, useState } from 'react'
 import { CalendarRange, ChevronRight, Flag, Plus, X } from 'lucide-react'
 import {
   exerciseOptions,
-  routineDays,
   targetText,
-  restSecondsFor,
   type DraftExercise,
   type DraftSet,
   type RoutineDay,
 } from '@/lib/workout-data'
 import { saveWorkout, useWorkouts } from '@/lib/data'
+import { useRoutines } from '@/lib/routines'
 import { fmtDuration, lastBestSet, lastSetNote, shouldProgress } from '@/lib/stats'
 import { useUserId } from '@/lib/auth'
 import { ExerciseCard } from '@/components/exercise-card'
-import { RestTimerBar } from '@/components/rest-timer-bar'
 
 let idCounter = 0
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${idCounter++}`
+
+let sessionStarted: number | null = null
+
+function getSessionStart() {
+  if (sessionStarted == null) sessionStarted = Date.now()
+  return sessionStarted
+}
+
+function resetSessionStart() {
+  sessionStarted = null
+}
 
 function newSet(prev?: DraftSet): DraftSet {
   return {
@@ -29,30 +38,26 @@ function newSet(prev?: DraftSet): DraftSet {
   }
 }
 
-export function WorkoutScreen() {
-  const [elapsed, setElapsed] = useState(0)
+export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }) {
+  const [elapsed, setElapsed] = useState(() =>
+    Math.floor((Date.now() - getSessionStart()) / 1000),
+  )
   const [draft, setDraft] = useState<DraftExercise[]>([])
-  const [resting, setResting] = useState(false)
-  const [restSeconds, setRestSeconds] = useState(85)
-  const [restKey, setRestKey] = useState('initial')
   const [pickerOpen, setPickerOpen] = useState(false)
   const [routineOpen, setRoutineOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
   const workouts = useWorkouts()
+  const routines = useRoutines()
   const userId = useUserId()
 
   useEffect(() => {
-    const id = setInterval(() => setElapsed((e) => e + 1), 1000)
+    const id = setInterval(() => {
+      setElapsed(Math.floor((Date.now() - getSessionStart()) / 1000))
+    }, 1000)
     return () => clearInterval(id)
   }, [])
-
-  useEffect(() => {
-    if (!flash) return
-    const id = setTimeout(() => setFlash(null), 2600)
-    return () => clearTimeout(id)
-  }, [flash])
 
   const completedSets = draft.reduce((n, ex) => n + ex.sets.filter((s) => s.done).length, 0)
   const totalSets = draft.reduce((n, ex) => n + ex.sets.length, 0)
@@ -86,6 +91,7 @@ export function WorkoutScreen() {
           id: uid('e'),
           name: te.name,
           target: targetText(te),
+          note: te.note || undefined,
           nextKg: progress,
           sets: Array.from({ length: te.sets }, () => ({
             id: uid('s'),
@@ -102,20 +108,10 @@ export function WorkoutScreen() {
   }
 
   function toggleSet(exerciseId: string, setId: string) {
-    const ex = draft.find((e) => e.id === exerciseId)
-    const set = ex?.sets.find((s) => s.id === setId)
-    if (!ex || !set) return
-    const nowDone = !set.done
     updateExercise(exerciseId, (cur) => ({
       ...cur,
-      sets: cur.sets.map((s) => (s.id === setId ? { ...s, done: nowDone } : s)),
+      sets: cur.sets.map((s) => (s.id === setId ? { ...s, done: !s.done } : s)),
     }))
-    if (nowDone) {
-      const secs = restSecondsFor(ex.name)
-      setRestSeconds(secs)
-      setRestKey(`${ex.name}-${setId}-${Date.now()}`)
-      setResting(true)
-    }
   }
 
   async function commit() {
@@ -136,13 +132,17 @@ export function WorkoutScreen() {
           })),
       })
       setDraft([])
+      resetSessionStart()
       setElapsed(0)
-      setResting(false)
       setPickerOpen(false)
       setRoutineOpen(false)
       setFlash({ kind: 'ok', text: 'Workout saved' })
-    } catch {
-      setFlash({ kind: 'error', text: 'Could not save workout. Check your connection.' })
+    } catch (e) {
+      const msg = (e as { message?: string } | null)?.message
+      setFlash({
+        kind: 'error',
+        text: msg ? `Could not save: ${msg}` : 'Could not save workout. Check your connection.',
+      })
     } finally {
       setSaving(false)
     }
@@ -268,7 +268,12 @@ export function WorkoutScreen() {
 
         {routineOpen && (
           <div className="mt-4">
-            <RoutinePicker onPick={startDay} onClose={() => setRoutineOpen(false)} />
+            <RoutinePicker
+              routines={routines}
+              onPick={startDay}
+              onEdit={onOpenRoutines}
+              onClose={() => setRoutineOpen(false)}
+            />
           </div>
         )}
 
@@ -299,14 +304,6 @@ export function WorkoutScreen() {
           </p>
         )}
       </div>
-
-      {resting && (
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 px-4 pb-4">
-          <div className="pointer-events-auto mx-auto max-w-md">
-            <RestTimerBar key={restKey} seconds={restSeconds} onSkip={() => setResting(false)} />
-          </div>
-        </div>
-      )}
 
       {flash && (
         <div className="pointer-events-none absolute inset-x-0 top-20 z-30 flex justify-center px-4">
@@ -387,16 +384,20 @@ function ExercisePicker({
 }
 
 function RoutinePicker({
+  routines,
   onPick,
+  onEdit,
   onClose,
 }: {
+  routines: RoutineDay[]
   onPick: (day: RoutineDay) => void
+  onEdit: () => void
   onClose: () => void
 }) {
   return (
     <section className="rounded-2xl border border-border bg-card">
       <div className="flex items-center justify-between px-4 pb-1 pt-4">
-        <p className="text-sm font-semibold text-foreground">Your 5-day routine</p>
+        <p className="text-sm font-semibold text-foreground">Your routines</p>
         <button
           type="button"
           onClick={onClose}
@@ -407,7 +408,7 @@ function RoutinePicker({
         </button>
       </div>
       <ul className="px-2 pb-2 pt-1">
-        {routineDays.map((day) => (
+        {routines.map((day) => (
           <li key={day.id}>
             <button
               type="button"
@@ -420,6 +421,15 @@ function RoutinePicker({
           </li>
         ))}
       </ul>
+      <div className="px-4 pb-4">
+        <button
+          type="button"
+          onClick={onEdit}
+          className="w-full rounded-xl border border-border bg-secondary py-2.5 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+        >
+          Manage routines
+        </button>
+      </div>
       <p className="px-4 pb-4 text-xs text-muted-foreground">
         Exercises are pre-filled with your target sets and reps. Weight starts from your last log.
       </p>

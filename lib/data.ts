@@ -77,40 +77,16 @@ function notifyChanged() {
 
 export async function saveWorkout(userId: string, workout: Workout) {
   const supabase = createClient()
-
-  const { data: workoutRow, error: workoutError } = await supabase
-    .from('workouts')
-    .insert({
-      user_id: userId,
-      date: workout.date,
-      elapsed_seconds: workout.elapsedSeconds,
-    })
-    .select('id')
-    .single()
-  if (workoutError) throw workoutError
-
-  for (const [exIndex, ex] of workout.exercises.entries()) {
-    const { data: exerciseRow, error: exerciseError } = await supabase
-      .from('workout_exercises')
-      .insert({ workout_id: workoutRow.id, name: ex.name, position: exIndex })
-      .select('id')
-      .single()
-    if (exerciseError) throw exerciseError
-
-    if (ex.sets.length === 0) continue
-
-    const { error: setsError } = await supabase.from('workout_sets').insert(
-      ex.sets.map((s, setIndex) => ({
-        exercise_id: exerciseRow.id,
-        kg: s.kg,
-        reps: s.reps,
-        rir: s.rir ?? null,
-        position: setIndex,
-      })),
-    )
-    if (setsError) throw setsError
-  }
-
+  const { error } = await supabase.rpc('log_workout', {
+    p_user_id: userId,
+    p_date: workout.date,
+    p_elapsed: workout.elapsedSeconds,
+    p_exercises: workout.exercises.map((ex) => ({
+      name: ex.name,
+      sets: ex.sets.map((s) => ({ kg: s.kg, reps: s.reps, rir: s.rir ?? null })),
+    })),
+  })
+  if (error) throw error
   notifyChanged()
 }
 
@@ -133,7 +109,8 @@ export function useWorkouts() {
   const refresh = useCallback(async (userId: string) => {
     try {
       setWorkouts(await fetchWorkouts(userId))
-    } catch {
+    } catch (e) {
+      console.error('Failed to load workouts', e)
       setWorkouts([])
     }
   }, [])

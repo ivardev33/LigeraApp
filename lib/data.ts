@@ -90,6 +90,24 @@ export async function saveWorkout(userId: string, workout: Workout) {
   notifyChanged()
 }
 
+export async function updateWorkout(
+  workoutId: string,
+  elapsedSeconds: number | null,
+  exercises: { name: string; sets: LoggedSet[] }[],
+) {
+  const supabase = createClient()
+  const { error } = await supabase.rpc('update_logged_workout', {
+    p_workout_id: workoutId,
+    p_elapsed: elapsedSeconds,
+    p_exercises: exercises.map((ex) => ({
+      name: ex.name,
+      sets: ex.sets.map((s) => ({ kg: s.kg, reps: s.reps, rir: s.rir ?? null })),
+    })),
+  })
+  if (error) throw error
+  notifyChanged()
+}
+
 export async function deleteWorkout(workoutId: string) {
   const supabase = createClient()
   const { error } = await supabase.from('workouts').delete().eq('id', workoutId)

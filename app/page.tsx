@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { BottomNav, type Screen } from '@/components/bottom-nav'
 import { WorkoutScreen } from '@/components/workout-screen'
 import { HistoryScreen } from '@/components/history-screen'
+import { EditWorkoutScreen } from '@/components/edit-workout-screen'
 import { AnalyticsScreen } from '@/components/analytics-screen'
 import { RoutinesScreen } from '@/components/routines-screen'
 import { AuthScreen } from '@/components/auth-screen'
@@ -12,6 +13,7 @@ import { useSession } from '@/lib/auth'
 
 export default function Page() {
   const [screen, setScreen] = useState<Screen>('workout')
+  const [editWorkoutId, setEditWorkoutId] = useState<string | null>(null)
   const { session, loading } = useSession()
 
   return (
@@ -35,17 +37,29 @@ export default function Page() {
               <UserMenu />
             </div>
             <div className="relative flex-1 overflow-hidden">
-              {screen === 'workout' ? (
+              {editWorkoutId ? (
+                <EditWorkoutScreen
+                  workoutId={editWorkoutId}
+                  onDone={() => setEditWorkoutId(null)}
+                  onClose={() => setEditWorkoutId(null)}
+                />
+              ) : screen === 'workout' ? (
                 <WorkoutScreen onOpenRoutines={() => setScreen('routines')} />
               ) : screen === 'routines' ? (
                 <RoutinesScreen />
               ) : screen === 'history' ? (
-                <HistoryScreen />
+                <HistoryScreen onEdit={setEditWorkoutId} />
               ) : (
                 <AnalyticsScreen />
               )}
             </div>
-            <BottomNav active={screen} onChange={setScreen} />
+            <BottomNav
+              active={screen}
+              onChange={(next) => {
+                setEditWorkoutId(null)
+                setScreen(next)
+              }}
+            />
           </>
         )}
       </div>

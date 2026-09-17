@@ -1,9 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { CalendarRange, ChevronRight, Flag, Plus, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { CalendarRange, ChevronRight, Flag, Pause, Play, Plus, Trash2, X } from 'lucide-react'
 import {
-  exerciseOptions,
   targetText,
   type DraftExercise,
   type DraftSet,
@@ -13,21 +12,12 @@ import { saveWorkout, useWorkouts } from '@/lib/data'
 import { useRoutines } from '@/lib/routines'
 import { fmtDuration, lastBestSet, lastSetNote, shouldProgress } from '@/lib/stats'
 import { useUserId } from '@/lib/auth'
+import { clearSession, loadSession, saveSession } from '@/lib/session'
 import { ExerciseCard } from '@/components/exercise-card'
+import { ExercisePicker } from '@/components/exercise-picker'
 
 let idCounter = 0
 const uid = (prefix: string) => `${prefix}-${Date.now()}-${idCounter++}`
-
-let sessionStarted: number | null = null
-
-function getSessionStart() {
-  if (sessionStarted == null) sessionStarted = Date.now()
-  return sessionStarted
-}
-
-function resetSessionStart() {
-  sessionStarted = null
-}
 
 function newSet(prev?: DraftSet): DraftSet {
   return {
@@ -39,28 +29,75 @@ function newSet(prev?: DraftSet): DraftSet {
 }
 
 export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }) {
-  const [elapsed, setElapsed] = useState(() =>
-    Math.floor((Date.now() - getSessionStart()) / 1000),
-  )
   const [draft, setDraft] = useState<DraftExercise[]>([])
   const [pickerOpen, setPickerOpen] = useState(false)
   const [routineOpen, setRoutineOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [discardConfirm, setDiscardConfirm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [flash, setFlash] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null)
+  const [startedAt, setStartedAt] = useState<number | null>(null)
+  const [accumulated, setAccumulated] = useState(0)
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  const hydrated = useRef(false)
   const workouts = useWorkouts()
   const routines = useRoutines()
   const userId = useUserId()
 
   useEffect(() => {
-    const id = setInterval(() => {
-      setElapsed(Math.floor((Date.now() - getSessionStart()) / 1000))
-    }, 1000)
+    const id = setInterval(() => setNowTick(Date.now()), 1000)
     return () => clearInterval(id)
   }, [])
 
+  useEffect(() => {
+    if (draft.length === 0 && startedAt != null) {
+      setAccumulated((acc) => acc + Math.max(0, Math.floor((Date.now() - startedAt) / 1000)))
+      setStartedAt(null)
+    }
+  }, [draft.length, startedAt])
+
+  useEffect(() => {
+    if (!userId) return
+    if (!hydrated.current) {
+      hydrated.current = true
+      const saved = loadSession(userId)
+      if (saved) {
+        setDraft(saved.draft)
+        setStartedAt(saved.startedAt)
+        setAccumulated(saved.accumulated)
+      }
+      return
+    }
+    if (draft.length === 0) {
+      clearSession()
+    } else {
+      saveSession({ userId, draft, startedAt, accumulated })
+    }
+  }, [userId, draft, startedAt, accumulated])
+
+  const elapsed = startedAt == null
+    ? accumulated
+    : accumulated + Math.max(0, Math.floor((nowTick - startedAt) / 1000))
+
   const completedSets = draft.reduce((n, ex) => n + ex.sets.filter((s) => s.done).length, 0)
   const totalSets = draft.reduce((n, ex) => n + ex.sets.length, 0)
+
+  function startTimer() {
+    setAccumulated(0)
+    setStartedAt(Date.now())
+  }
+
+  function pauseTimer() {
+    if (startedAt == null) return
+    setAccumulated(
+      accumulated + Math.max(0, Math.floor((Date.now() - startedAt) / 1000)),
+    )
+    setStartedAt(null)
+  }
+
+  function resumeTimer() {
+    setStartedAt(Date.now())
+  }
 
   function updateExercise(id: string, updater: (ex: DraftExercise) => DraftExercise) {
     setDraft((prev) => prev.map((ex) => (ex.id === id ? updater(ex) : ex)))
@@ -68,6 +105,7 @@ export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }
 
   function addExercise(name: string) {
     if (draft.some((ex) => ex.name === name)) return
+    if (draft.length === 0 && startedAt == null) startTimer()
     const last = lastBestSet(workouts, name)
     const first = last
       ? { id: uid('s'), kg: last.kg, reps: last.reps, done: false }
@@ -77,6 +115,7 @@ export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }
   }
 
   function startDay(day: RoutineDay) {
+    if (draft.length === 0 && startedAt == null) startTimer()
     setDraft((prev) => {
       const existing = new Set(prev.map((ex) => ex.name))
       const fresh: DraftExercise[] = []
@@ -114,6 +153,16 @@ export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }
     }))
   }
 
+  function discardSession() {
+    setDraft([])
+    setStartedAt(null)
+    setAccumulated(0)
+    setDiscardConfirm(false)
+    setPickerOpen(false)
+    setRoutineOpen(false)
+    clearSession()
+  }
+
   async function commit() {
     if (!userId || draft.length === 0 || saving) return
     setSaving(true)
@@ -132,10 +181,11 @@ export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }
           })),
       })
       setDraft([])
-      resetSessionStart()
-      setElapsed(0)
+      setStartedAt(null)
+      setAccumulated(0)
       setPickerOpen(false)
       setRoutineOpen(false)
+      clearSession()
       setFlash({ kind: 'ok', text: 'Workout saved' })
     } catch (e) {
       const msg = (e as { message?: string } | null)?.message
@@ -152,14 +202,33 @@ export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }
     <div className="flex h-full flex-col">
       <header className="sticky top-0 z-10 border-b border-border bg-background/85 px-4 pb-4 pt-5 backdrop-blur">
         <div className="flex items-center justify-between gap-3">
-          <div className="flex flex-col leading-none">
-            <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
-              Active workout
-            </span>
-            <span className="mt-1.5 font-mono text-3xl font-bold tabular-nums text-foreground">
-              {fmtDuration(elapsed)}
-            </span>
+          <div className="flex items-center gap-3">
+            <div className="flex flex-col leading-none">
+              <span className="text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+                Active workout
+              </span>
+              <span className="mt-1.5 font-mono text-3xl font-bold tabular-nums text-foreground">
+                {fmtDuration(elapsed)}
+              </span>
+            </div>
+            {draft.length > 0 && (
+              <button
+                type="button"
+                title={startedAt == null ? 'Resume timer' : 'Pause timer'}
+                aria-label={startedAt == null ? 'Resume timer' : 'Pause timer'}
+                onClick={startedAt == null ? resumeTimer : pauseTimer}
+                disabled={saving}
+                className="flex size-10 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-secondary"
+              >
+                {startedAt == null ? (
+                  <Play className="size-4 fill-current" />
+                ) : (
+                  <Pause className="size-4 fill-current" />
+                )}
+              </button>
+            )}
           </div>
+
           {confirming ? (
             <div className="flex items-center gap-2">
               <button
@@ -180,16 +249,46 @@ export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }
                 {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
+          ) : discardConfirm ? (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDiscardConfirm(false)}
+                disabled={saving}
+                className="rounded-xl border border-border bg-secondary px-3 py-2.5 text-sm font-bold text-secondary-foreground transition-colors hover:bg-muted"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={discardSession}
+                disabled={saving}
+                className="rounded-xl bg-destructive px-4 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-60"
+              >
+                Discard
+              </button>
+            </div>
           ) : (
-            <button
-              type="button"
-              onClick={() => setConfirming(true)}
-              disabled={draft.length === 0 || saving}
-              className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
-            >
-              <Flag className="size-4" strokeWidth={2.5} />
-              Finish
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setDiscardConfirm(true)}
+                disabled={draft.length === 0 || saving}
+                aria-label="Discard session"
+                className="rounded-xl border border-border p-2 text-muted-foreground transition-colors hover:text-destructive disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Trash2 className="size-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(true)}
+                disabled={draft.length === 0 || saving}
+                className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-bold text-primary-foreground shadow-lg shadow-primary/20 transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
+              >
+                <Flag className="size-4" strokeWidth={2.5} />
+                Finish
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -320,66 +419,6 @@ export function WorkoutScreen({ onOpenRoutines }: { onOpenRoutines: () => void }
         </div>
       )}
     </div>
-  )
-}
-
-function ExercisePicker({
-  onAdd,
-  onClose,
-}: {
-  onAdd: (name: string) => void
-  onClose: () => void
-}) {
-  const [custom, setCustom] = useState('')
-
-  function submit() {
-    const name = custom.trim()
-    if (name) onAdd(name)
-  }
-
-  return (
-    <section className="rounded-2xl border border-border bg-card">
-      <div className="flex items-center justify-between px-4 pb-1 pt-4">
-        <p className="text-sm font-semibold text-foreground">Add exercise</p>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close"
-          className="rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
-      </div>
-      <div className="flex flex-wrap gap-2 px-4 pt-2">
-        {exerciseOptions.map((opt) => (
-          <button
-            key={opt}
-            type="button"
-            onClick={() => onAdd(opt)}
-            className="rounded-full border border-border bg-secondary px-3 py-1.5 text-xs font-semibold text-foreground transition-colors hover:border-primary/50 hover:bg-muted"
-          >
-            {opt}
-          </button>
-        ))}
-      </div>
-      <div className="flex items-center gap-2 px-4 pb-4 pt-3">
-        <input
-          value={custom}
-          onChange={(e) => setCustom(e.target.value)}
-          onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder="Custom exercise name"
-          className="h-9 flex-1 rounded-lg border border-border bg-secondary px-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-        />
-        <button
-          type="button"
-          onClick={submit}
-          disabled={!custom.trim()}
-          className="h-9 rounded-lg bg-primary px-3.5 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:pointer-events-none disabled:opacity-40"
-        >
-          Add
-        </button>
-      </div>
-    </section>
   )
 }
 

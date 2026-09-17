@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { ChevronDown, Dumbbell, Trash2, X } from 'lucide-react'
+import { ChevronDown, Dumbbell, Pencil, Trash2, X } from 'lucide-react'
 import { deleteExercise, deleteWorkout, useWorkouts, type Workout } from '@/lib/data'
 import { fmtDuration } from '@/lib/stats'
 import { cn } from '@/lib/utils'
@@ -26,7 +26,7 @@ function fmtTime(iso: string) {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })
 }
 
-export function HistoryScreen() {
+export function HistoryScreen({ onEdit }: { onEdit: (workoutId: string) => void }) {
   const workouts = useWorkouts()
   const [openId, setOpenId] = useState<string | null>(null)
   const [confirmWorkout, setConfirmWorkout] = useState<string | null>(null)
@@ -154,14 +154,24 @@ export function HistoryScreen() {
                       </button>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => setConfirmWorkout(w.id)}
-                      aria-label="Delete workout"
-                      className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:text-destructive"
-                    >
-                      <Trash2 className="size-4" />
-                    </button>
+                    <div className="flex shrink-0 items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => onEdit(w.id)}
+                        aria-label="Edit workout"
+                        className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:text-foreground"
+                      >
+                        <Pencil className="size-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmWorkout(w.id)}
+                        aria-label="Delete workout"
+                        className="shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:text-destructive"
+                      >
+                        <Trash2 className="size-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
 

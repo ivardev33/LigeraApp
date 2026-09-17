@@ -56,7 +56,7 @@ lib/
     client.ts     browser Supabase client (singleton)
     server.ts     server client via cookies
     middleware.ts updateSession helper consumed by root proxy.ts
-supabase/migrations/   SQL migrations (0001_init, 0002_rir, 0003_routines, ...)
+supabase/migrations/   SQL migrations (0001_init, 0002_rir, 0003_routines, 0004_edit_workout)
 scripts/generate-icons.mjs  pure-Node PNG icon generator (no deps)
 public/           manifest.json, sw.js, icons/
 docs/             ROADMAP.md, SUPABASE.md
@@ -97,6 +97,17 @@ It refreshes on mount, on auth change, **and** on a window event
 
 Sessions are saved atomically via the `log_workout` RPC (single transaction in
 Postgres); `saveWorkout` in `lib/data.ts` calls `supabase.rpc('log_workout', …)`.
+Past sessions are edited in place via the `update_logged_workout` RPC (migration
+`0004_edit_workout.sql`): it re-checks ownership, optionally overrides
+`elapsed_seconds`, then replaces the workout's exercises/sets in one transaction,
+preserving the workout id and date. `updateWorkout` in `lib/data.ts` calls it,
+and `EditWorkoutScreen` (opened from History) drives it.
+
+The in-progress session (draft exercises + timer) is persisted to `localStorage`
+via `lib/session.ts` (key `ligera:session`, keyed per user) on every change, so it
+survives tab switches and reloads; it is cleared on save or discard. The workout
+timer auto-starts when the first exercise is added, shows `00:00:00` beforehand,
+and supports pause/resume from a header button (`startedAt`/`accumulated` model).
 
 `useRoutines()` (in `lib/routines.ts`) is the source of truth for editable
 routine days. It seeds the 5 defaults on first fetch and refreshes on the
